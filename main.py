@@ -18,12 +18,14 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QLabel, QListWidget, QTableWidget, QTableWidgetItem, QProgressBar, 
     QFrame, QHeaderView, QLineEdit, QPushButton, QStackedWidget, 
-    QAbstractItemView, QListWidgetItem, QGridLayout, QSizePolicy, QSpinBox, 
-    QCheckBox, QFileDialog, QMessageBox
+    QAbstractItemView, QListWidgetItem, QGridLayout, QSizePolicy, QSpinBox,
+    QCheckBox, QFileDialog, QMessageBox, QComboBox
 )
 from PySide6.QtCore import Qt, QTimer, QSettings
 from PySide6.QtGui import QCursor, QIcon, QColor, QBrush
 from core import TelegramWorker, BASE_DIR
+from themes import get_theme, resolve_theme_mode
+from stylesheet_builder import build_stylesheet
 from assets import (DecryptLabel, HackerProgressBar, TerminalLog, CyberGraph, 
                     CyberHexStream, ScanlineOverlay, MatrixLoader, CyberLoadingOverlay)
 
@@ -52,133 +54,48 @@ try:
 except Exception:
     logger.debug("Could not set AppUserModelID", exc_info=True)
 
-STYLESHEET = """
-    QMainWindow { background-color: #121212; }
-    QLabel { color: #e0e0e0; font-family: 'Segoe UI', sans-serif; font-size: 14px; }
-    QLineEdit { 
-        background-color: #1e1e1e; border: 1px solid #333; border-radius: 4px;
-        color: white; padding: 12px; font-family: 'Consolas', monospace; font-size: 13px;
-    }
-    QLineEdit:focus { border: 1px solid #4caf50; background-color: #252526; }
-    QFrame#Panel { background-color: #1e1e1e; border: 1px solid #333; border-radius: 6px; }
-    QFrame#Footer { background-color: #0f0f0f; border-top: 1px solid #333; }
-    
-    QFrame#SectionPanel {
-        background-color: #161616;
-        border: 1px solid #333;
-        border-radius: 6px;
-    }
-    
-    QLabel#GuideHeader { color: #4caf50; font-weight: bold; font-size: 18px; margin-bottom: 15px; }
-    QLabel#GuideStep { color: #aaa; font-size: 13px; line-height: 1.6; }
-    
-    QListWidget { background-color: #1e1e1e; border: 1px solid #333; border-radius: 6px; color: #ddd; outline: none; }
-    QListWidget::item { padding: 12px; border-bottom: 1px solid #252526; }
-    QListWidget::item:selected { background-color: #2d362e; border-left: 4px solid #4caf50; color: white; }
-    
-    /* --- CLEAN VIDEO LIST --- */
-    QTableWidget { 
-        background-color: #121212; 
-        border: none; 
-        gridline-color: transparent; 
-        color: #888; 
-        outline: none; 
-        selection-background-color: transparent; 
-        selection-color: #fff; 
-    }
-    QTableWidget::item { 
-        padding: 8px; 
-        border-bottom: 1px solid #1a1a1a; 
-    }
-    QTableWidget::item:hover {
-        background-color: #161616; 
-        color: #ffffff; 
-    }
-    QTableWidget::item:selected {
-        background-color: transparent; 
-        color: #ffffff; 
-    }
-    
-    QTableWidget::indicator { width: 14px; height: 14px; border: 1px solid #555; border-radius: 2px; background: transparent; }
-    QTableWidget::indicator:checked { background-color: #4caf50; border: 1px solid #4caf50; }
-    
-    QHeaderView::section { background-color: #121212; color: #555; border: none; border-bottom: 1px solid #333; padding: 10px; font-weight: bold; text-transform: uppercase; font-size: 10px; }
-
-    QPushButton { background-color: #2e7d32; color: white; border: none; padding: 10px 20px; font-weight: 600; border-radius: 4px; }
-    QPushButton:hover { background-color: #388e3c; }
-    QPushButton#Secondary { background-color: #333; color: #ccc; }
-    QPushButton#Destructive { background-color: #b71c1c; color: white; }
-    QPushButton#Amber { background-color: #ff8f00; color: black; }
-    
-    QPushButton#FilterBtn { background-color: #222; color: #666; border: 1px solid #333; font-size: 11px; }
-    QPushButton#FilterBtn:checked { background-color: #222; color: #4caf50; border: 1px solid #4caf50; }
-    QPushButton#FilterBtn:hover { border: 1px solid #555; color: #aaa; }
-    
-    QSpinBox { background-color: #1e1e1e; border: 1px solid #333; color: #4caf50; padding: 5px; font-weight: bold; font-family: 'Consolas'; }
-    QSpinBox::up-button, QSpinBox::down-button { background-color: #333; width: 20px; }
-    
-    QCheckBox { color: #888; font-weight: bold; spacing: 8px; font-family: 'Segoe UI'; font-size: 13px; }
-    QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #555; border-radius: 4px; background: #111; }
-    QCheckBox::indicator:checked { background: #4caf50; border: 1px solid #4caf50; }
-    QCheckBox:checked { color: #4caf50; }
-    
-    /* --- SCROLLBAR --- */
-    QScrollBar:vertical { border: none; background: #0f0f0f; width: 10px; margin: 0px 0px 0px 0px; }
-    QScrollBar::handle:vertical { background: #333; min-height: 20px; border-radius: 5px; }
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
-
-    QLabel#StatTitle { color: #bbbbbb; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; }
-    QLabel#StatValue { color: #ffffff; font-family: 'Consolas'; font-size: 12px; }
-    QLabel#StatValueGreen { color: #4caf50; font-size: 12px; font-family: 'Consolas'; font-weight: bold; }
-    
-    QTableWidget#ActiveStats { 
-        background-color: #0f0f0f; 
-        border: none; 
-        font-family: 'Consolas'; 
-        font-size: 15px; 
-        font-weight: bold;
-        selection-background-color: transparent;
-    }
-    QTableWidget#ActiveStats::item { 
-        padding-left: 10px; padding-right: 10px; 
-        color: #eee; 
-        border-bottom: 1px solid #222; 
-    }
-
-    QLabel#CountGreen { color: #4caf50; font-family: 'Consolas'; font-size: 16px; font-weight: 900; letter-spacing: 1px; }
-    QLabel#CountYellow { color: #ffca28; font-family: 'Consolas'; font-size: 16px; font-weight: 900; letter-spacing: 1px; }
-"""
-
 class MainWindow(QMainWindow):
     def __init__(self, worker):
         super().__init__()
         self.worker = worker
+        self.decrypt_labels = []
         self.setWindowIcon(QIcon(resource_path("icon.ico"))) 
-        self.setWindowTitle("TELEFLOW v3.0 GUI")
+        self.setWindowTitle("Teleflow v4")
         self.resize(1000, 700) 
+        self.setMinimumSize(920, 640)
         
         # Load Settings (Last Download Path)
         self.settings = QSettings("Teleflow", "Downloader")
         default_dl = os.path.join(os.path.expanduser("~"), "Downloads")
         self.download_path = self.settings.value("download_path", default_dl)
+        saved_theme_pref = self.settings.value("theme_preference", "system")
+        self.theme_preference = saved_theme_pref if saved_theme_pref in ("system", "dark", "light") else "system"
+        self.theme_mode = resolve_theme_mode(self.theme_preference, QApplication.instance())
+        self.theme = get_theme(self.theme_mode)
         
         center = QApplication.primaryScreen().availableGeometry().center()
         frame_geo = self.frameGeometry()
         frame_geo.moveCenter(center)
         self.move(frame_geo.topLeft())
         
-        self.setStyleSheet(STYLESHEET)
-        
         self.central_container = QWidget(); self.setCentralWidget(self.central_container)
-        self.global_layout = QVBoxLayout(self.central_container); self.global_layout.setContentsMargins(0,0,0,0)
-        self.scanlines = ScanlineOverlay(self.central_container); self.scanlines.raise_()
+        self.global_layout = QVBoxLayout(self.central_container)
+        self.global_layout.setContentsMargins(0, 0, 0, 0)
+        self.global_layout.setSpacing(0)
+
+        self.top_bar = self.init_top_bar()
+        self.global_layout.addWidget(self.top_bar)
+
+        self.scanlines = ScanlineOverlay(self.central_container, theme=self.theme)
+        self.scanlines.raise_()
         self.stack = QStackedWidget(); self.global_layout.addWidget(self.stack)
 
         self.init_footer(); self.init_login_page(); self.init_chat_page(); self.init_video_page(); self.init_download_page()
         self.is_downloading = False; self.all_chats = []; self.current_videos = []; self.sort_reverse = False
         
         # --- LOADING OVERLAY ---
-        self.loader = CyberLoadingOverlay(self.central_container)
+        self.loader = CyberLoadingOverlay(self.central_container, theme=self.theme)
+        self.loader.raise_()
         
         self.worker.saved_creds_found.connect(self.on_creds_found)
         self.worker.request_creds.connect(lambda: self.stack.setCurrentIndex(0))
@@ -208,23 +125,135 @@ class MainWindow(QMainWindow):
         self.cnt_down = 0
         self.cnt_queue = 0
 
+        self.apply_theme(self.theme_mode)
+
     def resizeEvent(self, event): 
         self.scanlines.setGeometry(self.rect())
         self.loader.setGeometry(self.rect()) # KEEP OVERLAY FULL SIZE
         super().resizeEvent(event)
 
+    def init_top_bar(self):
+        bar = QFrame()
+        bar.setObjectName("TopBar")
+        bar.setFixedHeight(66)
+
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(20, 8, 20, 8)
+        layout.setSpacing(12)
+
+        title_box = QVBoxLayout()
+        title_box.setSpacing(0)
+        title = QLabel("Teleflow v4")
+        title.setObjectName("AppTitle")
+        subtitle = QLabel("PROFESSIONAL TELEGRAM MEDIA MANAGEMENT")
+        subtitle.setObjectName("AppSubtitle")
+        title_box.addWidget(title)
+        title_box.addWidget(subtitle)
+
+        layout.addLayout(title_box)
+        layout.addStretch()
+
+        self.top_mode_badge = QLabel("Theme: Dark")
+        self.top_mode_badge.setObjectName("MetaBadge")
+        layout.addWidget(self.top_mode_badge)
+
+        self.btn_theme_toggle = QPushButton("Toggle Theme")
+        self.btn_theme_toggle.setObjectName("Secondary")
+        self.btn_theme_toggle.clicked.connect(self.toggle_theme)
+        layout.addWidget(self.btn_theme_toggle)
+        return bar
+
+    def make_decrypt_label(self, text, size):
+        label = DecryptLabel(text, size=size, theme=self.theme)
+        self.decrypt_labels.append(label)
+        return label
+
+    def _sync_theme_controls(self):
+        if hasattr(self, "top_mode_badge"):
+            self.top_mode_badge.setText(f"Theme: {self.theme_mode.title()}")
+        if hasattr(self, "theme_pref_combo"):
+            blocked = self.theme_pref_combo.blockSignals(True)
+            self.theme_pref_combo.setCurrentText(self.theme_preference.title())
+            self.theme_pref_combo.blockSignals(blocked)
+        if hasattr(self, "theme_pref_combo_login"):
+            blocked = self.theme_pref_combo_login.blockSignals(True)
+            self.theme_pref_combo_login.setCurrentText(self.theme_preference.title())
+            self.theme_pref_combo_login.blockSignals(blocked)
+
+    def set_theme_preference(self, mode):
+        mode = mode.lower()
+        if mode not in ("system", "dark", "light"):
+            return
+        self.theme_preference = mode
+        self.settings.setValue("theme_preference", mode)
+        self.settings.sync()
+        self.theme_mode = resolve_theme_mode(mode, QApplication.instance())
+        self.apply_theme(self.theme_mode)
+
+    def toggle_theme(self):
+        next_mode = "light" if self.theme_mode == "dark" else "dark"
+        self.set_theme_preference(next_mode)
+
+    def apply_theme(self, mode):
+        self.theme_mode = mode
+        self.theme = get_theme(mode)
+        self.setStyleSheet(build_stylesheet(self.theme))
+
+        for label in self.decrypt_labels:
+            label.set_theme(self.theme)
+
+        for widget_name in ["scanlines", "loader", "term_log", "graph", "hex_stream", "dl_bar", "matrix_loader"]:
+            widget = getattr(self, widget_name, None)
+            if widget and hasattr(widget, "set_theme"):
+                widget.set_theme(self.theme)
+
+        if hasattr(self, "lbl_manifest"):
+            self.lbl_manifest.setStyleSheet(
+                f"color:{self.theme['text_faint']}; font-weight:700; font-size:15px; letter-spacing:0.5px;"
+            )
+        if hasattr(self, "lbl_chat_types"):
+            self.lbl_chat_types.setStyleSheet(
+                f"color:{self.theme['text_faint']}; font-family:'Consolas'; font-size:10px; font-weight:700;"
+            )
+        if hasattr(self, "lbl_save_location"):
+            self.lbl_save_location.setStyleSheet(f"color:{self.theme['text_muted']}; font-weight:700;")
+        if hasattr(self, "lbl_threads"):
+            self.lbl_threads.setStyleSheet(f"color:{self.theme['text_muted']}; font-weight:700;")
+        if hasattr(self, "txt_path"):
+            self.txt_path.setStyleSheet(
+                f"color:{self.theme['accent']}; border:1px solid {self.theme['border']}; background:{self.theme['surface_elevated']};"
+            )
+        if hasattr(self, "login_guides"):
+            for lbl in self.login_guides:
+                lbl.setStyleSheet(f"color:{self.theme['text_muted']};")
+
+        self._sync_theme_controls()
+
     # --- PAGES ---
     def init_login_page(self):
-        p = QWidget(); layout = QHBoxLayout(p); layout.setContentsMargins(30, 0, 30, 0); layout.setSpacing(0)
-        guide_area = QWidget(); g_main = QVBoxLayout(guide_area); g_main.setAlignment(Qt.AlignCenter)
-        guide_pan = QFrame(); guide_pan.setObjectName("Panel")
-        
-        guide_pan.setMaximumWidth(420); guide_pan.setMinimumWidth(300); guide_pan.setMinimumHeight(350)
-        
-        g_ly = QVBoxLayout(guide_pan); g_ly.setContentsMargins(40, 40, 40, 40); g_ly.setSpacing(15)
+        p = QWidget()
+        layout = QHBoxLayout(p)
+        layout.setContentsMargins(30, 24, 30, 24)
+        layout.setSpacing(22)
+
+        guide_area = QWidget()
+        g_main = QVBoxLayout(guide_area)
+        g_main.setAlignment(Qt.AlignCenter)
+
+        guide_pan = QFrame()
+        guide_pan.setObjectName("Panel")
+        guide_pan.setMaximumWidth(460)
+        guide_pan.setMinimumWidth(320)
+        guide_pan.setMinimumHeight(420)
+
+        g_ly = QVBoxLayout(guide_pan)
+        g_ly.setContentsMargins(32, 28, 32, 28)
+        g_ly.setSpacing(12)
         g_ly.addWidget(QLabel("UPLINK CONFIGURATION", objectName="GuideHeader", alignment=Qt.AlignLeft))
+        g_ly.addWidget(QLabel("Connect once, then reuse your saved session securely.", objectName="MetaBadge"))
+
         steps = [
-            '1. Open <a href="https://my.telegram.org" style="color: #4caf50;">my.telegram.org</a> in your browser.',
+            '1. Open <a href="https://my.telegram.org">my.telegram.org</a> in your browser.',
             '2. Login with your phone number.',
             '3. Enter the code sent to your <b>Telegram App</b>.',
             '4. Click on <b>"API development tools"</b>.',
@@ -232,50 +261,99 @@ class MainWindow(QMainWindow):
             '6. Copy the <b>api_id</b> and <b>api_hash</b>.',
             '7. Paste keys here and click <b>ESTABLISH UPLINK</b>.'
         ]
+        self.login_guides = []
         for step in steps:
             lbl = QLabel(step, objectName="GuideStep")
-            lbl.setOpenExternalLinks(True); lbl.setWordWrap(True); g_ly.addWidget(lbl)
-        g_main.addWidget(guide_pan); layout.addWidget(guide_area, 1)
+            lbl.setOpenExternalLinks(True)
+            lbl.setWordWrap(True)
+            g_ly.addWidget(lbl)
+            self.login_guides.append(lbl)
 
-        login_area = QWidget(); l_main = QVBoxLayout(login_area); l_main.setAlignment(Qt.AlignCenter)
-        login_pan = QFrame(); login_pan.setObjectName("Panel")
-        
-        login_pan.setMaximumWidth(420); login_pan.setMinimumWidth(300); login_pan.setMinimumHeight(320)
-        
-        self.login_stack = QStackedWidget(login_pan); pl = QVBoxLayout(login_pan); pl.addWidget(self.login_stack)
-        
-        pg0 = QWidget(); p0l = QVBoxLayout(pg0); p0l.setSpacing(20); p0l.setContentsMargins(20,20,20,20)
-        p0l.addWidget(DecryptLabel("SYSTEM LOGIN", size=24), alignment=Qt.AlignCenter)
+        g_ly.addSpacing(8)
+        appearance_row = QHBoxLayout()
+        appearance_row.addWidget(QLabel("Theme", objectName="MetaBadge"))
+        self.theme_pref_combo_login = QComboBox()
+        self.theme_pref_combo_login.addItems(["System", "Dark", "Light"])
+        self.theme_pref_combo_login.setFixedWidth(140)
+        self.theme_pref_combo_login.currentTextChanged.connect(lambda v: self.set_theme_preference(v.lower()))
+        appearance_row.addWidget(self.theme_pref_combo_login)
+        appearance_row.addStretch()
+        g_ly.addLayout(appearance_row)
+
+        g_main.addWidget(guide_pan)
+        layout.addWidget(guide_area, 1)
+
+        login_area = QWidget()
+        l_main = QVBoxLayout(login_area)
+        l_main.setAlignment(Qt.AlignCenter)
+
+        login_pan = QFrame()
+        login_pan.setObjectName("Panel")
+        login_pan.setMaximumWidth(460)
+        login_pan.setMinimumWidth(340)
+        login_pan.setMinimumHeight(380)
+
+        self.login_stack = QStackedWidget(login_pan)
+        pl = QVBoxLayout(login_pan)
+        pl.setContentsMargins(18, 18, 18, 18)
+        pl.addWidget(self.login_stack)
+
+        pg0 = QWidget()
+        p0l = QVBoxLayout(pg0)
+        p0l.setSpacing(16)
+        p0l.setContentsMargins(20,20,20,20)
+        p0l.addWidget(self.make_decrypt_label("SYSTEM LOGIN", size=24), alignment=Qt.AlignCenter)
         self.inp_api = QLineEdit(placeholderText="API ID"); p0l.addWidget(self.inp_api)
         self.inp_hash = QLineEdit(placeholderText="API Hash"); p0l.addWidget(self.inp_hash)
         self.inp_phone = QLineEdit(placeholderText="Phone Number"); p0l.addWidget(self.inp_phone)
-        btn_con = QPushButton("ESTABLISH UPLINK"); btn_con.clicked.connect(self.do_connect); p0l.addWidget(btn_con)
-        self.lbl_login_status = QLabel("Ready...", alignment=Qt.AlignCenter); p0l.addWidget(self.lbl_login_status)
+        btn_con = QPushButton("ESTABLISH UPLINK"); btn_con.clicked.connect(self.do_connect); p0l.addWidget(btn_con, alignment=Qt.AlignRight)
+        self.lbl_login_status = QLabel("Ready...", alignment=Qt.AlignCenter)
+        self.lbl_login_status.setObjectName("MetaBadge")
+        p0l.addWidget(self.lbl_login_status)
         self.login_stack.addWidget(pg0)
-        
-        pg1 = QWidget(); p1l = QVBoxLayout(pg1); p1l.setSpacing(20); p1l.setContentsMargins(20,20,20,20)
-        p1l.addWidget(DecryptLabel("VERIFY CODE", size=24), alignment=Qt.AlignCenter)
+
+        pg1 = QWidget()
+        p1l = QVBoxLayout(pg1)
+        p1l.setSpacing(16)
+        p1l.setContentsMargins(20,20,20,20)
+        p1l.addWidget(self.make_decrypt_label("VERIFY CODE", size=24), alignment=Qt.AlignCenter)
         self.inp_otp = QLineEdit(placeholderText="Code"); p1l.addWidget(self.inp_otp)
-        btn_otp = QPushButton("VERIFY"); btn_otp.clicked.connect(self.do_verify_otp); p1l.addWidget(btn_otp)
+        btn_otp = QPushButton("VERIFY"); btn_otp.clicked.connect(self.do_verify_otp); p1l.addWidget(btn_otp, alignment=Qt.AlignRight)
         self.login_stack.addWidget(pg1)
 
-        pg2 = QWidget(); p2l = QVBoxLayout(pg2); p2l.setSpacing(20); p2l.setContentsMargins(20,20,20,20)
-        p2l.addWidget(DecryptLabel("CLOUD PWD", size=24), alignment=Qt.AlignCenter)
+        pg2 = QWidget()
+        p2l = QVBoxLayout(pg2)
+        p2l.setSpacing(16)
+        p2l.setContentsMargins(20,20,20,20)
+        p2l.addWidget(self.make_decrypt_label("CLOUD PWD", size=24), alignment=Qt.AlignCenter)
         self.inp_2fa = QLineEdit(placeholderText="2FA Password"); self.inp_2fa.setEchoMode(QLineEdit.Password); p2l.addWidget(self.inp_2fa)
-        btn_2fa = QPushButton("AUTHENTICATE"); btn_2fa.clicked.connect(self.do_verify_pwd); p2l.addWidget(btn_2fa)
+        btn_2fa = QPushButton("AUTHENTICATE"); btn_2fa.clicked.connect(self.do_verify_pwd); p2l.addWidget(btn_2fa, alignment=Qt.AlignRight)
         self.login_stack.addWidget(pg2)
-        l_main.addWidget(login_pan); layout.addWidget(login_area, 1); self.stack.addWidget(p)
+        l_main.addWidget(login_pan)
+        layout.addWidget(login_area, 1)
+        self.stack.addWidget(p)
 
     def init_chat_page(self):
-        p = QWidget(); layout = QVBoxLayout(p); layout.setContentsMargins(50,50,50,50)
-        h_ly = QHBoxLayout(); h_ly.addWidget(DecryptLabel("SOURCE NODE SELECTION", size=25)); h_ly.addStretch()
-        h_ly.addWidget(QLabel("🟢 Channel | 🔵 Group | 👤 DM", styleSheet="color:#888; font-family:'Consolas'; font-size:10px; font-weight:bold;")); layout.addLayout(h_ly)
-        f_bar = QHBoxLayout(); self.search_chats = QLineEdit(placeholderText="Search Nodes..."); self.search_chats.setFixedWidth(250); self.search_chats.textChanged.connect(self.apply_chat_filter); f_bar.addWidget(self.search_chats); f_bar.addSpacing(20)
+        p = QWidget(); layout = QVBoxLayout(p); layout.setContentsMargins(42, 28, 42, 28); layout.setSpacing(14)
+        h_ly = QHBoxLayout(); h_ly.addWidget(self.make_decrypt_label("SOURCE NODE SELECTION", size=25)); h_ly.addStretch()
+        self.lbl_chat_types = QLabel("🟢 Channel | 🔵 Group | 👤 DM")
+        self.lbl_chat_types.setObjectName("MetaBadge")
+        h_ly.addWidget(self.lbl_chat_types); layout.addLayout(h_ly)
+
+        f_bar = QHBoxLayout(); self.search_chats = QLineEdit(placeholderText="Search Nodes..."); self.search_chats.setFixedWidth(280); self.search_chats.textChanged.connect(self.apply_chat_filter); f_bar.addWidget(self.search_chats); f_bar.addSpacing(12)
         self.btn_all = QPushButton("ALL"); self.btn_ch = QPushButton("CHANNELS"); self.btn_gr = QPushButton("GROUPS"); self.btn_dm = QPushButton("DMs")
         for b in [self.btn_all, self.btn_ch, self.btn_gr, self.btn_dm]:
             b.setCheckable(True); b.setObjectName("FilterBtn"); b.setFixedWidth(100); b.clicked.connect(self.apply_chat_filter); f_bar.addWidget(b)
         self.btn_all.setChecked(True); f_bar.addStretch(); layout.addLayout(f_bar)
-        self.chat_list = QListWidget(); self.chat_list.itemClicked.connect(self.start_chat_scan); layout.addWidget(self.chat_list); self.stack.addWidget(p)
+
+        list_shell = QFrame()
+        list_shell.setObjectName("Panel")
+        shell_layout = QVBoxLayout(list_shell)
+        shell_layout.setContentsMargins(12, 12, 12, 12)
+        self.chat_list = QListWidget(); self.chat_list.itemClicked.connect(self.start_chat_scan)
+        shell_layout.addWidget(self.chat_list)
+        layout.addWidget(list_shell)
+        self.stack.addWidget(p)
 
     def start_chat_scan(self, item):
         self.stack.setCurrentIndex(2)
@@ -288,22 +366,36 @@ class MainWindow(QMainWindow):
         self.matrix_loader.set_count(count)
 
     def init_video_page(self):
-        p = QWidget(); layout = QVBoxLayout(p); layout.setContentsMargins(40,40,40,40); layout.addWidget(DecryptLabel("PAYLOAD DIRECTORY", size=20))
-        
-        sl = QHBoxLayout(); self.search_videos = QLineEdit(placeholderText="Search Payloads..."); self.search_videos.setFixedWidth(300); self.search_videos.textChanged.connect(self.refresh_video_table); sl.addWidget(self.search_videos); sl.addSpacing(20)
-        self.btn_sort_new = QPushButton("FILTER: NEW > OLD"); self.btn_sort_new.setObjectName("FilterBtn"); self.btn_sort_new.clicked.connect(lambda: self.toggle_sort(True))
-        self.btn_sort_old = QPushButton("FILTER: OLD > NEW"); self.btn_sort_old.setObjectName("FilterBtn"); self.btn_sort_old.clicked.connect(lambda: self.toggle_sort(False))
-        sl.addWidget(self.btn_sort_new); sl.addSpacing(5); sl.addWidget(self.btn_sort_old)
-        sl.addSpacing(20)
-        self.chk_show_caption = QCheckBox("SHOW CAPTIONS")
+        p = QWidget()
+        layout = QVBoxLayout(p)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(16)
+        layout.addWidget(self.make_decrypt_label("PAYLOAD DIRECTORY", size=20))
+
+        sl = QHBoxLayout()
+        self.search_videos = QLineEdit(placeholderText="Search Payloads...")
+        self.search_videos.setFixedWidth(320)
+        self.search_videos.textChanged.connect(self.refresh_video_table)
+        sl.addWidget(self.search_videos)
+        sl.addSpacing(10)
+        self.btn_sort_new = QPushButton("NEW > OLD")
+        self.btn_sort_new.setObjectName("FilterBtn")
+        self.btn_sort_new.clicked.connect(lambda: self.toggle_sort(True))
+        self.btn_sort_old = QPushButton("OLD > NEW")
+        self.btn_sort_old.setObjectName("FilterBtn")
+        self.btn_sort_old.clicked.connect(lambda: self.toggle_sort(False))
+        sl.addWidget(self.btn_sort_new)
+        sl.addWidget(self.btn_sort_old)
+
+        self.chk_show_caption = QCheckBox("Show Captions")
         self.chk_show_caption.setCursor(Qt.PointingHandCursor)
         self.chk_show_caption.stateChanged.connect(self.refresh_video_table)
         sl.addWidget(self.chk_show_caption)
-        sl.addStretch(); layout.addLayout(sl)
-        
+        sl.addStretch()
+        layout.addLayout(sl)
+
         self.list_stack = QStackedWidget()
-        
-        # 1. TABLE VIEW
+
         self.video_table = QTableWidget(0, 4)
         self.video_table.setHorizontalHeaderLabels(["SEL", "NO", "FILENAME", "SIZE"])
         self.video_table.setAlternatingRowColors(True)
@@ -314,7 +406,6 @@ class MainWindow(QMainWindow):
         self.video_table.setFocusPolicy(Qt.NoFocus)
         self.video_table.verticalHeader().setVisible(False)
         self.video_table.setWordWrap(True)
-        
         self.video_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
         self.video_table.setColumnWidth(0, 45)
         self.video_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Fixed)
@@ -324,29 +415,58 @@ class MainWindow(QMainWindow):
         self.video_table.setColumnWidth(3, 100)
         self.video_table.cellDoubleClicked.connect(self.on_video_cell_double_click)
         self.list_stack.addWidget(self.video_table)
-        
-        # 2. MATRIX VIEW
-        self.matrix_loader = MatrixLoader()
+
+        self.matrix_loader = MatrixLoader(theme=self.theme)
         self.list_stack.addWidget(self.matrix_loader)
-        
+
         layout.addWidget(self.list_stack)
-        
-        # --- NEW: FOLDER SELECTION ---
+
         path_layout = QHBoxLayout()
-        path_layout.addWidget(QLabel("SAVE LOCATION:", styleSheet="color:#aaa; font-weight:bold;"))
+        self.lbl_save_location = QLabel("SAVE LOCATION:")
+        path_layout.addWidget(self.lbl_save_location)
         self.txt_path = QLineEdit(self.download_path)
         self.txt_path.setReadOnly(True)
-        self.txt_path.setStyleSheet("color:#4caf50; border:1px solid #333; background:#111;")
         path_layout.addWidget(self.txt_path)
         btn_browse = QPushButton("BROWSE")
-        btn_browse.setFixedSize(100, 35)
+        btn_browse.setFixedSize(110, 36)
         btn_browse.setObjectName("Secondary")
         btn_browse.clicked.connect(self.browse_folder)
         path_layout.addWidget(btn_browse)
         layout.addLayout(path_layout)
-        layout.addSpacing(10)
-        
-        bl = QHBoxLayout(); bk = QPushButton("BACK"); bk.setObjectName("Secondary"); bk.clicked.connect(lambda: self.stack.setCurrentIndex(1)); self.btn_sel_all = QPushButton("SELECT ALL"); self.btn_sel_all.setObjectName("Secondary"); self.btn_sel_all.clicked.connect(self.toggle_select_all); dl = QPushButton("START EXFILTRATION"); dl.clicked.connect(self.start_download_batch); t_lbl = QLabel("THREADS:"); t_lbl.setStyleSheet("color:#aaa; font-weight:bold;"); self.spin_concurrent = QSpinBox(); self.spin_concurrent.setRange(1, 10); self.spin_concurrent.setValue(3); self.spin_concurrent.setFixedSize(60, 35); bl.addWidget(bk); bl.addWidget(self.btn_sel_all); bl.addStretch(); bl.addWidget(t_lbl); bl.addWidget(self.spin_concurrent); bl.addSpacing(10); bl.addWidget(dl); layout.addLayout(bl); self.stack.addWidget(p)
+
+        pref_layout = QHBoxLayout()
+        pref_layout.addWidget(QLabel("Appearance", objectName="MetaBadge"))
+        self.theme_pref_combo = QComboBox()
+        self.theme_pref_combo.addItems(["System", "Dark", "Light"])
+        self.theme_pref_combo.currentTextChanged.connect(lambda v: self.set_theme_preference(v.lower()))
+        self.theme_pref_combo.setFixedWidth(140)
+        pref_layout.addWidget(self.theme_pref_combo)
+        pref_layout.addStretch()
+        layout.addLayout(pref_layout)
+
+        bl = QHBoxLayout()
+        bk = QPushButton("BACK")
+        bk.setObjectName("Secondary")
+        bk.clicked.connect(lambda: self.stack.setCurrentIndex(1))
+        self.btn_sel_all = QPushButton("SELECT ALL")
+        self.btn_sel_all.setObjectName("Secondary")
+        self.btn_sel_all.clicked.connect(self.toggle_select_all)
+        dl = QPushButton("START DOWNLOAD")
+        dl.clicked.connect(self.start_download_batch)
+        self.lbl_threads = QLabel("THREADS:")
+        self.spin_concurrent = QSpinBox()
+        self.spin_concurrent.setRange(1, 10)
+        self.spin_concurrent.setValue(3)
+        self.spin_concurrent.setFixedSize(70, 36)
+        bl.addWidget(bk)
+        bl.addWidget(self.btn_sel_all)
+        bl.addStretch()
+        bl.addWidget(self.lbl_threads)
+        bl.addWidget(self.spin_concurrent)
+        bl.addSpacing(10)
+        bl.addWidget(dl)
+        layout.addLayout(bl)
+        self.stack.addWidget(p)
 
     def _make_visual_panel(self, widget):
         b = QFrame(); b.setObjectName("Panel"); b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding); vl = QVBoxLayout(b); vl.setContentsMargins(0,0,0,0); vl.addWidget(widget); return b
@@ -359,78 +479,135 @@ class MainWindow(QMainWindow):
             self.settings.setValue("download_path", folder)
 
     def init_download_page(self):
-        p = QWidget(); layout = QVBoxLayout(p); layout.setContentsMargins(30, 30, 30, 30)
-        
-        h_l = QHBoxLayout()
-        self.dl_header = DecryptLabel("EXFILTRATION IN PROGRESS", size=25)
-        h_l.addWidget(self.dl_header); h_l.addSpacing(25)
-        self.chk_shutdown = QCheckBox("AUTO SHUTDOWN on Mission Completion")
+        p = QWidget()
+        layout = QVBoxLayout(p)
+        layout.setContentsMargins(30, 24, 30, 24)
+        layout.setSpacing(14)
+
+        header_row = QHBoxLayout()
+        self.dl_header = self.make_decrypt_label("EXFILTRATION IN PROGRESS", size=25)
+        header_row.addWidget(self.dl_header)
+        header_row.addSpacing(18)
+        self.chk_shutdown = QCheckBox("Auto shutdown after completion")
         self.chk_shutdown.setCursor(Qt.PointingHandCursor)
-        h_l.addWidget(self.chk_shutdown); h_l.addStretch()
-        btn_ab = QPushButton("ABORT & BACK"); btn_ab.setObjectName("Destructive"); btn_ab.setFixedSize(120, 30); btn_ab.clicked.connect(self.go_back_keep_downloading)
-        h_l.addWidget(btn_ab); layout.addLayout(h_l)
-        
-        split_layout = QHBoxLayout(); split_layout.setSpacing(10)
-        active_frame = QFrame(); active_frame.setObjectName("SectionPanel")
-        af_lay = QVBoxLayout(active_frame); af_lay.setContentsMargins(15,15,15,15)
+        header_row.addWidget(self.chk_shutdown)
+        header_row.addStretch()
+        btn_ab = QPushButton("ABORT & BACK")
+        btn_ab.setObjectName("Destructive")
+        btn_ab.setFixedSize(130, 34)
+        btn_ab.clicked.connect(self.go_back_keep_downloading)
+        header_row.addWidget(btn_ab)
+        layout.addLayout(header_row)
+
+        split_layout = QHBoxLayout()
+        split_layout.setSpacing(12)
+
+        active_frame = QFrame()
+        active_frame.setObjectName("SectionPanel")
+        af_lay = QVBoxLayout(active_frame)
+        af_lay.setContentsMargins(16, 14, 16, 14)
+        af_lay.setSpacing(10)
+
         hud_layout = QHBoxLayout()
-        lbl_manifest = QLabel(">> UPLINK MANIFEST"); lbl_manifest.setStyleSheet("color:#888; font-weight:bold; font-size:16px; letter-spacing:1px;") 
-        hud_layout.addWidget(lbl_manifest); hud_layout.addStretch() 
+        self.lbl_manifest = QLabel("LIVE DOWNLOAD MANIFEST")
+        self.lbl_manifest.setObjectName("MetaBadge")
+        hud_layout.addWidget(self.lbl_manifest)
+        hud_layout.addStretch()
         self.lbl_active_count = QLabel("▼ ACTIVE: 0", objectName="CountGreen")
         self.lbl_queue_count = QLabel("⏳ QUEUED: 0", objectName="CountYellow")
-        hud_layout.addWidget(self.lbl_active_count); hud_layout.addSpacing(25); hud_layout.addWidget(self.lbl_queue_count)
+        hud_layout.addWidget(self.lbl_active_count)
+        hud_layout.addSpacing(18)
+        hud_layout.addWidget(self.lbl_queue_count)
         af_lay.addLayout(hud_layout)
-        
-        self.active_table = QTableWidget(0, 5); self.active_table.setObjectName("ActiveStats")
-        self.active_table.verticalHeader().setVisible(False); self.active_table.horizontalHeader().setVisible(False)
-        
+
+        self.active_table = QTableWidget(0, 5)
+        self.active_table.setObjectName("ActiveStats")
+        self.active_table.verticalHeader().setVisible(False)
+        self.active_table.horizontalHeader().setVisible(False)
         self.active_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.active_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents) # Percent
-        self.active_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents) # Size
-        self.active_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents) # Speed
-        self.active_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents) # ETA
-        
+        self.active_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.active_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.active_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.active_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.active_table.setShowGrid(False)
-        self.active_table.setFocusPolicy(Qt.NoFocus); self.active_table.setSelectionMode(QAbstractItemView.NoSelection)
-        af_lay.addWidget(self.active_table); split_layout.addWidget(active_frame, 3) 
+        self.active_table.setFocusPolicy(Qt.NoFocus)
+        self.active_table.setSelectionMode(QAbstractItemView.NoSelection)
+        af_lay.addWidget(self.active_table)
+        split_layout.addWidget(active_frame, 3)
 
-        drama_frame = QFrame(); drama_frame.setObjectName("SectionPanel"); drama_frame.setFixedWidth(240)
-        df_lay = QVBoxLayout(drama_frame); df_lay.setContentsMargins(5,5,5,5); df_lay.setSpacing(5)
-        self.term_log = TerminalLog(); self.graph = CyberGraph(); self.hex_stream = CyberHexStream()
-        df_lay.addWidget(QLabel(">> SYSTEM LOGS", styleSheet="color:#aaa; font-size:8px; font-weight:bold; margin-left:5px;"))
-        v1 = self._make_visual_panel(self.term_log); v1.setFixedHeight(100); df_lay.addWidget(v1)
-        df_lay.addWidget(QLabel(">> NETWORK TRAFFIC", styleSheet="color:#aaa; font-size:8px; font-weight:bold; margin-left:5px;"))
-        v2 = self._make_visual_panel(self.graph); v2.setFixedHeight(100); df_lay.addWidget(v2)
-        df_lay.addWidget(QLabel(">> HEX STREAM", styleSheet="color:#aaa; font-size:8px; font-weight:bold; margin-left:5px;"))
-        v3 = self._make_visual_panel(self.hex_stream); v3.setFixedHeight(100); df_lay.addWidget(v3)
-        split_layout.addWidget(drama_frame, 1); layout.addLayout(split_layout)
+        telemetry_frame = QFrame()
+        telemetry_frame.setObjectName("SectionPanel")
+        telemetry_frame.setFixedWidth(260)
+        df_lay = QVBoxLayout(telemetry_frame)
+        df_lay.setContentsMargins(8, 8, 8, 8)
+        df_lay.setSpacing(6)
 
-        prog_frame = QFrame(); prog_frame.setObjectName("SectionPanel"); prog_frame.setFixedHeight(180)
-        pf_layout = QVBoxLayout(prog_frame); pf_layout.setContentsMargins(20,20,20,20)
-        self.dl_bar = HackerProgressBar(); pf_layout.addWidget(self.dl_bar)
-        stats_g = QGridLayout(); stats_g.setSpacing(15)
+        self.term_log = TerminalLog(theme=self.theme)
+        self.graph = CyberGraph(theme=self.theme)
+        self.hex_stream = CyberHexStream(theme=self.theme)
+
+        df_lay.addWidget(QLabel("SYSTEM LOGS", objectName="MetaBadge"))
+        v1 = self._make_visual_panel(self.term_log)
+        v1.setFixedHeight(102)
+        df_lay.addWidget(v1)
+        df_lay.addWidget(QLabel("NETWORK TRAFFIC", objectName="MetaBadge"))
+        v2 = self._make_visual_panel(self.graph)
+        v2.setFixedHeight(102)
+        df_lay.addWidget(v2)
+        df_lay.addWidget(QLabel("HEX STREAM", objectName="MetaBadge"))
+        v3 = self._make_visual_panel(self.hex_stream)
+        v3.setFixedHeight(102)
+        df_lay.addWidget(v3)
+        split_layout.addWidget(telemetry_frame, 1)
+        layout.addLayout(split_layout)
+
+        prog_frame = QFrame()
+        prog_frame.setObjectName("SectionPanel")
+        prog_frame.setFixedHeight(186)
+        pf_layout = QVBoxLayout(prog_frame)
+        pf_layout.setContentsMargins(20, 18, 20, 18)
+        pf_layout.setSpacing(10)
+        self.dl_bar = HackerProgressBar(theme=self.theme)
+        pf_layout.addWidget(self.dl_bar)
+        stats_g = QGridLayout()
+        stats_g.setSpacing(15)
         stats_g.addWidget(self.create_stat_box("TOTAL THROUGHPUT", "0.0 MB/s", "lbl_speed"), 0, 0)
         stats_g.addWidget(self.create_stat_box("TOTAL ETA", "00:00:00", "lbl_eta"), 0, 1)
         stats_g.addWidget(self.create_stat_box("TOTAL SIZE", "0 / 0 MB", "lbl_size"), 0, 2)
-        stats_g.addWidget(self.create_stat_box("PKT_LOSS", "0.00%", "lbl_loss", True), 1, 0)
-        stats_g.addWidget(self.create_stat_box("CYPHER", "AES-256", "lbl_enc", True), 1, 1)
-        stats_g.addWidget(self.create_stat_box("DISK_I/O", "ACTIVE", "lbl_disk", True), 1, 2)
-        pf_layout.addLayout(stats_g); layout.addWidget(prog_frame)
-        
-        btn_l = QHBoxLayout(); btn_bk = QPushButton("BACK"); btn_bk.setObjectName("Secondary"); btn_bk.clicked.connect(self.go_back_keep_downloading); self.btn_pause = QPushButton("QUEUE PAUSE"); self.btn_pause.setObjectName("Amber"); self.btn_pause.clicked.connect(self.toggle_pause); self.btn_st = QPushButton("STOP"); self.btn_st.setObjectName("Destructive"); self.btn_st.clicked.connect(self.stop_download)
-        btn_l.addWidget(btn_bk); btn_l.addWidget(self.btn_pause); btn_l.addWidget(self.btn_st); layout.addLayout(btn_l); self.stack.addWidget(p)
+        stats_g.addWidget(self.create_stat_box("PKT LOSS", "0.00%", "lbl_loss", True), 1, 0)
+        stats_g.addWidget(self.create_stat_box("CIPHER", "AES-256", "lbl_enc", True), 1, 1)
+        stats_g.addWidget(self.create_stat_box("DISK I/O", "ACTIVE", "lbl_disk", True), 1, 2)
+        pf_layout.addLayout(stats_g)
+        layout.addWidget(prog_frame)
+
+        btn_l = QHBoxLayout()
+        btn_bk = QPushButton("BACK")
+        btn_bk.setObjectName("Secondary")
+        btn_bk.clicked.connect(self.go_back_keep_downloading)
+        self.btn_pause = QPushButton("QUEUE PAUSE")
+        self.btn_pause.setObjectName("Amber")
+        self.btn_pause.clicked.connect(self.toggle_pause)
+        self.btn_st = QPushButton("STOP")
+        self.btn_st.setObjectName("Destructive")
+        self.btn_st.clicked.connect(self.stop_download)
+        btn_l.addWidget(btn_bk)
+        btn_l.addWidget(self.btn_pause)
+        btn_l.addWidget(self.btn_st)
+        btn_l.addStretch()
+        layout.addLayout(btn_l)
+        self.stack.addWidget(p)
 
     def init_footer(self):
-        self.footer = QFrame(); self.footer.setObjectName("Footer"); self.footer.setFixedHeight(75); self.footer.hide(); layout = QHBoxLayout(self.footer); layout.setContentsMargins(20, 10, 20, 10); self.foot_lbl_name = QLabel("..."); self.foot_lbl_name.setStyleSheet("font-weight: bold; color: white;"); layout.addWidget(self.foot_lbl_name, 1); self.foot_lbl_stat = QLabel("0%"); layout.addWidget(self.foot_lbl_stat); self.foot_btn_pause = QPushButton("QUEUE PAUSE"); self.foot_btn_pause.setObjectName("Amber"); self.foot_btn_pause.setFixedSize(135, 35); self.foot_btn_pause.clicked.connect(self.toggle_pause); layout.addWidget(self.foot_btn_pause); btn_st = QPushButton("STOP"); btn_st.setObjectName("Destructive"); btn_st.setFixedSize(80, 35); btn_st.clicked.connect(self.stop_download); layout.addWidget(btn_st); btn_ex = QPushButton("EXPAND"); btn_ex.setFixedSize(100, 35); btn_ex.clicked.connect(lambda: self.stack.setCurrentIndex(3)); layout.addWidget(btn_ex); self.global_layout.addWidget(self.footer)
+        self.footer = QFrame(); self.footer.setObjectName("Footer"); self.footer.setFixedHeight(75); self.footer.hide(); layout = QHBoxLayout(self.footer); layout.setContentsMargins(20, 10, 20, 10); self.foot_lbl_name = QLabel("..."); self.foot_lbl_name.setObjectName("StatValue"); layout.addWidget(self.foot_lbl_name, 1); self.foot_lbl_stat = QLabel("0%"); self.foot_lbl_stat.setObjectName("StatValueGreen"); layout.addWidget(self.foot_lbl_stat); self.foot_btn_pause = QPushButton("QUEUE PAUSE"); self.foot_btn_pause.setObjectName("Amber"); self.foot_btn_pause.setFixedSize(135, 35); self.foot_btn_pause.clicked.connect(self.toggle_pause); layout.addWidget(self.foot_btn_pause); btn_st = QPushButton("STOP"); btn_st.setObjectName("Destructive"); btn_st.setFixedSize(80, 35); btn_st.clicked.connect(self.stop_download); layout.addWidget(btn_st); btn_ex = QPushButton("EXPAND"); btn_ex.setFixedSize(100, 35); btn_ex.clicked.connect(lambda: self.stack.setCurrentIndex(3)); layout.addWidget(btn_ex); self.global_layout.addWidget(self.footer)
 
     def generate_drama(self):
         phrase = random.choice(self.drama_phrases)
-        colors = ["#4caf50", "#00ff41", "#008f11", "#a2ff00"]
+        colors = [self.theme["accent"], self.theme["success"], self.theme["text_muted"], self.theme["warning"]]
         self.term_log.add_entry(phrase, random.choice(colors))
 
     def go_back_keep_downloading(self): self.stack.setCurrentIndex(2); self.check_footer_visibility()
-    def toggle_pause(self): is_p = (self.btn_pause.text() == "QUEUE PAUSE"); self.btn_pause.setText("QUEUE RESUME" if is_p else "QUEUE PAUSE"); self.foot_btn_pause.setText(self.btn_pause.text()); self.worker.set_pause(is_p); self.term_log.add_entry(f"SYSTEM: {'PAUSE' if is_p else 'RESUME'} SIGNAL RECEIVED", "#ff8f00" if is_p else "#00ff41")
-    def stop_download(self): self.worker.stop_task(); self.term_log.add_entry("KILL SIGNAL SENT.", "#b71c1c")
+    def toggle_pause(self): is_p = (self.btn_pause.text() == "QUEUE PAUSE"); self.btn_pause.setText("QUEUE RESUME" if is_p else "QUEUE PAUSE"); self.foot_btn_pause.setText(self.btn_pause.text()); self.worker.set_pause(is_p); self.term_log.add_entry(f"SYSTEM: {'PAUSE' if is_p else 'RESUME'} SIGNAL RECEIVED", self.theme["warning"] if is_p else self.theme["success"])
+    def stop_download(self): self.worker.stop_task(); self.term_log.add_entry("KILL SIGNAL SENT.", self.theme["danger"])
     
     def toggle_sleep_prevention(self, enable):
         try:
@@ -482,7 +659,7 @@ class MainWindow(QMainWindow):
             box.setWindowTitle("FILE CONFLICT")
             box.setText(f"{len(conflicts)} files already exist in the destination folder.")
             box.setInformativeText("How do you want to proceed?")
-            box.setStyleSheet("background-color: #222; color: #eee;")
+            box.setStyleSheet(f"background-color: {self.theme['surface_alt']}; color: {self.theme['text']};")
             
             btn_skip = box.addButton("Skip Existing", QMessageBox.ActionRole)
             btn_over = box.addButton("Overwrite All", QMessageBox.ActionRole)
@@ -522,7 +699,7 @@ class MainWindow(QMainWindow):
             self.row_map[item['name']] = row
             
             name_item = QTableWidgetItem(item['name'])
-            name_item.setForeground(QBrush(QColor("#ffca28"))) 
+            name_item.setForeground(QBrush(QColor(self.theme["warning"]))) 
             self.active_table.setItem(row, 0, name_item)
             
             self.active_table.setItem(row, 1, QTableWidgetItem("PENDING"))
@@ -551,7 +728,7 @@ class MainWindow(QMainWindow):
         self.update_header_counts()
         if f in self.row_map:
             row = self.row_map[f]
-            self.active_table.item(row, 0).setForeground(QBrush(QColor("#4caf50")))
+            self.active_table.item(row, 0).setForeground(QBrush(QColor(self.theme["success"])))
             self.active_table.item(row, 1).setText("INIT...")
 
     def on_dl_progress(self, n, p, s, e, ps): 
@@ -560,9 +737,9 @@ class MainWindow(QMainWindow):
     def update_individual_row(self, filename, percent, speed, eta, size):
         if filename in self.row_map:
             row = self.row_map[filename]
-            self.active_table.item(row, 0).setForeground(QBrush(QColor("#4caf50")))
+            self.active_table.item(row, 0).setForeground(QBrush(QColor(self.theme["success"])))
             self.active_table.item(row, 1).setText(f"{percent}%")
-            self.active_table.item(row, 1).setForeground(QColor("#4caf50") if percent==100 else QColor("#ffffff"))
+            self.active_table.item(row, 1).setForeground(QColor(self.theme["success"]) if percent==100 else QColor(self.theme["text"]))
             self.active_table.item(row, 2).setText(size if percent<100 else "COMPLETE")
             self.active_table.item(row, 3).setText(speed if percent<100 else "--")
             self.active_table.item(row, 4).setText(eta if percent<100 else "00:00")
@@ -573,7 +750,7 @@ class MainWindow(QMainWindow):
     def on_queue_finished(self): 
         self.is_downloading = False; self.check_footer_visibility(); self.dl_header.setText("BATCH COMPLETE")
         self.drama_timer.stop()
-        self.term_log.add_entry("ALL OPERATIONS COMPLETE.", "#ffffff")
+        self.term_log.add_entry("ALL OPERATIONS COMPLETE.", self.theme["text"])
         self.cnt_down = 0; self.cnt_queue = 0; self.update_header_counts()
         self.toggle_sleep_prevention(False)
         if self.chk_shutdown.isChecked():
@@ -585,14 +762,14 @@ class MainWindow(QMainWindow):
                 QMessageBox.No,
             )
             if response == QMessageBox.Yes:
-                self.term_log.add_entry("SYSTEM HALT: 60 SECONDS", "#b71c1c")
+                self.term_log.add_entry("SYSTEM HALT: 60 SECONDS", self.theme["danger"])
                 try:
                     subprocess.run(["shutdown", "/s", "/t", "60"], check=True)
                 except Exception:
                     logger.exception("Failed to schedule shutdown")
                     QMessageBox.warning(self, "Shutdown Failed", "Could not schedule system shutdown.")
             else:
-                self.term_log.add_entry("SYSTEM HALT CANCELLED.", "#ffca28")
+                self.term_log.add_entry("SYSTEM HALT CANCELLED.", self.theme["warning"])
 
     def check_footer_visibility(self): self.footer.setVisible(self.is_downloading and self.stack.currentIndex() != 3)
     def create_stat_box(self, t, v, o, g=False): 
