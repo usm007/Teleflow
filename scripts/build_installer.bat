@@ -25,7 +25,7 @@ if not exist "%ISCC%" (
 
 echo [INFO] Cleaning old installer artifacts...
 if exist "build" rmdir /s /q "build"
-if exist "dist\Teleflow_v3" rmdir /s /q "dist\Teleflow_v3"
+if exist "dist\Teleflow_v4" rmdir /s /q "dist\Teleflow_v4"
 if exist "release" rmdir /s /q "release"
 
 echo [INFO] Building onedir payload with PyInstaller spec...
@@ -36,7 +36,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist "dist\Teleflow_v3\Teleflow_v3.exe" (
+if not exist "dist\Teleflow_v4\Teleflow_v4.exe" (
   echo [ERROR] Onedir payload executable missing.
   popd
   exit /b 1
@@ -44,7 +44,7 @@ if not exist "dist\Teleflow_v3\Teleflow_v3.exe" (
 
 if defined SIGN_CERT_SHA1 (
   echo [INFO] Signing onedir app executable...
-  signtool sign /sha1 "%SIGN_CERT_SHA1%" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "dist\Teleflow_v3\Teleflow_v3.exe"
+  signtool sign /sha1 "%SIGN_CERT_SHA1%" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "dist\Teleflow_v4\Teleflow_v4.exe"
   if errorlevel 1 (
     echo [ERROR] Code signing failed for onedir executable.
     popd
@@ -61,9 +61,9 @@ if errorlevel 1 (
 )
 
 if defined SIGN_CERT_SHA1 (
-  if exist "release\Teleflow_v3_Setup.exe" (
+  if exist "release\Teleflow_v4_Setup.exe" (
     echo [INFO] Signing installer executable...
-    signtool sign /sha1 "%SIGN_CERT_SHA1%" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "release\Teleflow_v3_Setup.exe"
+    signtool sign /sha1 "%SIGN_CERT_SHA1%" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "release\Teleflow_v4_Setup.exe"
     if errorlevel 1 (
       echo [ERROR] Code signing failed for installer executable.
       popd
@@ -71,7 +71,7 @@ if defined SIGN_CERT_SHA1 (
     )
 
     echo [INFO] Verifying installer signature...
-    signtool verify /pa "release\Teleflow_v3_Setup.exe"
+    signtool verify /pa "release\Teleflow_v4_Setup.exe"
     if errorlevel 1 (
       echo [ERROR] Signature verification failed for installer executable.
       popd
@@ -82,6 +82,6 @@ if defined SIGN_CERT_SHA1 (
   echo [WARN] SIGN_CERT_SHA1 is not set. Installer build is unsigned.
 )
 
-echo [OK] Installer build ready: release\Teleflow_v3_Setup.exe
+echo [OK] Installer build ready: release\Teleflow_v4_Setup.exe
 popd
 exit /b 0

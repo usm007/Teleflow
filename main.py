@@ -49,7 +49,7 @@ def configure_logging():
 logger = configure_logging()
 
 try:
-    myappid = u'teleflow.downloader.pro.v3' 
+    myappid = u'teleflow.downloader.pro.v4'
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 except Exception:
     logger.debug("Could not set AppUserModelID", exc_info=True)

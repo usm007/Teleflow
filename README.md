@@ -1,5 +1,5 @@
 ```markdown
-# TELEFLOW v3.0 - SECURE DATA EXFILTRATION SUITE
+# TELEFLOW v4 - SECURE DATA EXFILTRATION SUITE
 
 **Teleflow** is a professional-grade, high-performance Telegram video downloader built with a sleek **Grey & Green** terminal aesthetic. It features a robust asynchronous engine, a "cyber-ops" inspired interface, and a new **Concurrent Batch Processor** designed for maximum efficiency and stability.
 
@@ -60,7 +60,7 @@ pip install pyinstaller
 2. **Build portable executable:**
 *(One-file output for easy sharing)*
 ```bash
-pyinstaller --noconsole --onefile --name="Teleflow_v3" --icon="icon.ico" --add-data="icon.ico;." main.py
+pyinstaller --noconsole --onefile --name="Teleflow_v4" --icon="icon.ico" --add-data="icon.ico;." main.py
 
 ```
 
@@ -97,8 +97,8 @@ set SIGN_CERT_SHA1=YOUR_CERT_THUMBPRINT
 
 
 6. **Locate artifacts:**
-- `dist\Teleflow_v3.exe` (portable)
-- `release\Teleflow_v3_Setup.exe` (installer)
+- `dist\Teleflow_v4.exe` (portable)
+- `release\Teleflow_v4_Setup.exe` (installer)
 
 The scripts auto-sign and verify binaries if `SIGN_CERT_SHA1` is set.
 

@@ -8,6 +8,7 @@ build/
 dist/
 *.log
 Teleflow_v3.spec
+Teleflow_v4.spec
 release/
 InnoSetupInstaller.exe
 
