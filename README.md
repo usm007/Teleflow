@@ -11,6 +11,23 @@ Teleflow is a desktop Telegram video downloader built with PySide6 + Telethon, f
 - Installer executable: `Teleflow_v4_Setup.exe`
 - Release page: https://github.com/usm007/Teleflow-4.0/releases/tag/v4.1.0
 
+## Legacy Versions (History Preserved)
+
+Older Teleflow lines are now preserved in this same repository as dedicated branches:
+
+- `legacy/v1` -> migrated from `usm007/Teleflow-1.0`
+- `legacy/v2` -> migrated from `usm007/Teleflow-2.0`
+- `legacy/v3` -> migrated from `usm007/Teleflow-3.0`
+
+This keeps full commit history for each legacy line while `main` stays focused on v4.
+
+Example:
+
+```bash
+git fetch origin
+git checkout legacy/v3
+```
+
 ---
 
 ## Key Features
