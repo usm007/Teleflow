@@ -3,6 +3,7 @@ import ctypes
 import asyncio
 import time
 import re
+import json
 import logging
 import shutil
 from telethon import TelegramClient, errors
@@ -24,8 +25,17 @@ def _resolve_base_dir():
 BASE_DIR = _resolve_base_dir()
 CRED_FILE = os.path.join(BASE_DIR, "credentials.txt")
 SESSION_PATH = os.path.join(BASE_DIR, SESSION_NAME)
+SCAN_CACHE_FILE = os.path.join(BASE_DIR, "scan_cache.json")
 
 logger = logging.getLogger("teleflow")
+
+
+class PauseRequestedError(Exception):
+    pass
+
+
+class ManualAbortError(Exception):
+    pass
 
 class TelegramWorker(QObject):
     auth_status = Signal(str)
@@ -39,8 +49,10 @@ class TelegramWorker(QObject):
     videos_loaded = Signal(list)
     download_started = Signal(str, list)
     
-    # Real-time scan counter
-    scan_progress = Signal(int) 
+    # Real-time scan counter (scanned_count, total_count)
+    scan_progress = Signal(int, int)
+    scan_cache_loaded = Signal(int)
+    scan_finished = Signal()
     
     # Global Batch Progress
     download_progress = Signal(str, int, str, str, str) 
@@ -60,12 +72,14 @@ class TelegramWorker(QObject):
         self.is_paused = False
         self.is_cancelled = False
         self.is_running = False
+        self._scan_generation = 0
         
         # Queue Management
         self._download_queue = asyncio.Queue()
         self._active_tasks = set()
         self._batch_total_size = 0
         self._file_progress = {}
+        self._global_downloaded = 0
         self._global_start_time = 0
         
     def set_pause(self, paused: bool):
@@ -73,6 +87,31 @@ class TelegramWorker(QObject):
 
     def stop_task(self):
         self.is_cancelled = True
+
+    def cancel_scan(self):
+        self._scan_generation += 1
+
+    def reset_credentials_and_session(self):
+        try:
+            if self.client:
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(self.client.disconnect())
+                except RuntimeError:
+                    pass
+        except Exception:
+            logger.debug("Failed to disconnect client during reset", exc_info=True)
+
+        for target in [CRED_FILE, f"{SESSION_PATH}.session", f"{SESSION_PATH}.session-journal"]:
+            if os.path.exists(target):
+                try:
+                    os.remove(target)
+                except Exception:
+                    logger.exception("Failed to remove %s", target)
+
+        self.client = None
+        self.phone = None
+        self.request_creds.emit()
 
     # --- AUTH & SCANNING (Unchanged) ---
     async def check_saved_data(self):
@@ -144,11 +183,38 @@ class TelegramWorker(QObject):
     async def scan_chat(self, chat_id):
         videos = []
         video_count = 0
-        self.scan_progress.emit(0) 
+        total_videos = 0
+        self._scan_generation += 1
+        scan_generation = self._scan_generation
+        self.scan_progress.emit(0, 0)
+
+        cached_videos = self._get_cached_videos(chat_id)
+        if cached_videos:
+            self.videos_loaded.emit(cached_videos)
+            self.scan_cache_loaded.emit(len(cached_videos))
         
         try:
             entity = await self.client.get_entity(chat_id)
+
+            # Pull total matching messages once so UI can show determinate progress.
+            try:
+                total_probe = await self.client.get_messages(entity, limit=1, filter=InputMessagesFilterVideo)
+                total_videos = int(getattr(total_probe, "total", 0) or 0)
+            except Exception:
+                logger.debug("Could not resolve total scan count for chat_id=%s", chat_id, exc_info=True)
+                total_videos = 0
+
+            self.scan_progress.emit(0, total_videos)
+
+            if cached_videos:
+                cached_count = len(cached_videos)
+                if total_videos > 0:
+                    self.scan_progress.emit(min(cached_count, total_videos), total_videos)
+
             async for msg in self.client.iter_messages(entity, limit=None, filter=InputMessagesFilterVideo):
+                if scan_generation != self._scan_generation:
+                    self.auth_status.emit("SCAN ABORTED")
+                    return
                 if msg.media and hasattr(msg.media, 'document'):
                     if any(isinstance(x, DocumentAttributeVideo) for x in msg.media.document.attributes):
                         size_mb = msg.media.document.size / (1024 * 1024)
@@ -160,21 +226,26 @@ class TelegramWorker(QObject):
                         raw_caption = msg.text or ""
                         clean_caption = raw_caption.replace('\n', ' ').strip()
                         display_caption = clean_caption if clean_caption else safe_name
+                        date_added = msg.date.strftime("%Y-%m-%d %H:%M") if getattr(msg, "date", None) else "-"
                         
                         videos.append({
                             "id": msg.id, 
+                            "chat_id": chat_id,
                             "name": filename,
                             "caption": display_caption, 
+                            "date_added": date_added,
                             "size": f"{size_mb:.2f} MB", 
                             "msg": msg
                         })
                         
                         video_count += 1
                         if video_count % 10 == 0: 
-                            self.scan_progress.emit(video_count)
+                            self.scan_progress.emit(video_count, total_videos)
 
-            self.scan_progress.emit(video_count)
+            self.scan_progress.emit(video_count, max(total_videos, video_count))
+            self._save_scan_cache(chat_id, videos)
             self.videos_loaded.emit(videos)
+            self.scan_finished.emit()
             
         except Exception as e:
             logger.exception("Scan failed for chat_id=%s", chat_id)
@@ -184,9 +255,30 @@ class TelegramWorker(QObject):
     
     async def add_to_queue(self, new_items, concurrent_limit, save_path):
         """Adds items to the queue. Starts the processor if not running."""
+        entity_cache = {}
+
         # 1. Update Global Stats
         for item in new_items:
-            self._batch_total_size += item['msg'].file.size
+            if not item.get('msg'):
+                chat_id = item.get('chat_id')
+                msg_id = item.get('id')
+                if not chat_id or not msg_id:
+                    logger.warning("Skipping cached item without chat_id/msg_id: %s", item.get('name', '?'))
+                    continue
+                entity = entity_cache.get(chat_id)
+                if entity is None:
+                    entity = await self.client.get_entity(chat_id)
+                    entity_cache[chat_id] = entity
+                msg = await self.client.get_messages(entity, ids=msg_id)
+                if not msg or not getattr(msg, 'file', None):
+                    logger.warning("Could not hydrate cached message %s", msg_id)
+                    continue
+                item['msg'] = msg
+                size_mb = msg.file.size / (1024 * 1024)
+                item['size'] = f"{size_mb:.2f} MB"
+
+            file_size = item['msg'].file.size
+            self._batch_total_size += file_size
             self._file_progress[item['name']] = 0
             await self._download_queue.put(item)
 
@@ -195,6 +287,7 @@ class TelegramWorker(QObject):
             self.is_cancelled = False
             self.is_paused = False
             self.is_running = True
+            self._global_downloaded = 0
             self._global_start_time = time.time()
             asyncio.create_task(self._queue_processor(concurrent_limit, save_path))
 
@@ -210,6 +303,9 @@ class TelegramWorker(QObject):
                 # Drain queue
                 while not self._download_queue.empty():
                     self._download_queue.get_nowait()
+                self._batch_total_size = 0
+                self._file_progress = {}
+                self._global_downloaded = 0
                 return
 
             # Check if finished (Queue empty AND no active tasks)
@@ -219,6 +315,7 @@ class TelegramWorker(QObject):
                 # Reset stats for next clean run
                 self._batch_total_size = 0
                 self._file_progress = {}
+                self._global_downloaded = 0
                 return
             
             # Wait for pause
@@ -256,12 +353,12 @@ class TelegramWorker(QObject):
 
             def progress_callback(current, total):
                 nonlocal last_emit_time
-                if self.is_cancelled: raise Exception("MANUAL_ABORT")
+                if self.is_cancelled:
+                    raise ManualAbortError("MANUAL_ABORT")
                 
-                # Check pause inside the download loop
-                while self.is_paused:
-                    time.sleep(1) # Blocking sleep is okay inside telethon callback, or use error to break
-                    if self.is_cancelled: raise Exception("MANUAL_ABORT")
+                # Never block telethon/Qt event loops inside callback.
+                if self.is_paused:
+                    raise PauseRequestedError("PAUSE_REQUESTED")
 
                 current_time = time.time()
                 if (current_time - last_emit_time < 0.1) and (current != total):
@@ -282,8 +379,14 @@ class TelegramWorker(QObject):
                 self.individual_progress.emit(filename, ind_percent, ind_speed_str, ind_eta_str, ind_size_str)
                 
                 # Global Stats
+                previous = self._file_progress.get(filename, 0)
+                delta = current - previous
+                if delta < 0:
+                    # Download restarted from 0 after pause/retry.
+                    delta = current
                 self._file_progress[filename] = current
-                global_current = sum(self._file_progress.values())
+                self._global_downloaded = max(0, self._global_downloaded + delta)
+                global_current = self._global_downloaded
                 glob_elapsed = current_time - self._global_start_time or 0.001
                 glob_speed = global_current / glob_elapsed
                 glob_speed_str = f"{glob_speed / (1024*1024):.2f} MB/s"
@@ -303,11 +406,30 @@ class TelegramWorker(QObject):
                 await self.client.download_media(item['msg'], file=path, progress_callback=progress_callback)
                 self.individual_progress.emit(filename, 100, "DONE", "00:00", f"{file_size/(1024*1024):.1f} MB")
                 # Ensure global progress reflects 100% for this file
-                self._file_progress[filename] = file_size 
+                previous = self._file_progress.get(filename, 0)
+                if file_size > previous:
+                    self._global_downloaded += file_size - previous
+                self._file_progress[filename] = file_size
+            except PauseRequestedError:
+                previous = self._file_progress.get(filename, 0)
+                if previous > 0:
+                    self._global_downloaded = max(0, self._global_downloaded - previous)
+                self._file_progress[filename] = 0
+                while self.is_paused and not self.is_cancelled:
+                    await asyncio.sleep(0.2)
+                if not self.is_cancelled:
+                    await self._download_queue.put(item)
+                return
+            except ManualAbortError:
+                return
             except Exception as e:
-                if "MANUAL_ABORT" in str(e): return
                 logger.exception("Download failed for %s", filename)
                 self.individual_progress.emit(filename, 0, "FAILED", "--", "ERROR")
+                previous = self._file_progress.get(filename, 0)
+                if previous > 0:
+                    self._global_downloaded = max(0, self._global_downloaded - previous)
+                self._file_progress.pop(filename, None)
+                self._batch_total_size = max(0, self._batch_total_size - file_size)
 
     # --- CREDENTIALS IO ---
     def _load_credentials(self):
@@ -331,6 +453,19 @@ class TelegramWorker(QObject):
             if os.name == "nt": ctypes.windll.kernel32.SetFileAttributesW(CRED_FILE, 0x02)
         except Exception:
             logger.debug("Could not set hidden attribute on credentials file", exc_info=True)
+
+    def _secure_file_for_runtime(self, path):
+        """Apply basic file-hardening used for app runtime artifacts."""
+        try:
+            os.chmod(path, 0o600)
+        except Exception:
+            logger.debug("Could not apply chmod 600 to %s", path, exc_info=True)
+
+        if os.name == "nt":
+            try:
+                ctypes.windll.kernel32.SetFileAttributesW(path, 0x02)
+            except Exception:
+                logger.debug("Could not set hidden attribute on %s", path, exc_info=True)
 
     def _ensure_runtime_dir(self):
         os.makedirs(BASE_DIR, exist_ok=True)
@@ -359,3 +494,65 @@ class TelegramWorker(QObject):
                         break
                     except Exception:
                         logger.exception("Failed to migrate legacy session file from %s", src)
+
+        legacy_scan_cache_candidates = [
+            os.path.abspath("scan_cache.json"),
+            os.path.expanduser("~/.tbtgdl/scan_cache.json"),
+        ]
+        if not os.path.exists(SCAN_CACHE_FILE):
+            for src in legacy_scan_cache_candidates:
+                if src != SCAN_CACHE_FILE and os.path.exists(src):
+                    try:
+                        shutil.copy2(src, SCAN_CACHE_FILE)
+                        self._secure_file_for_runtime(SCAN_CACHE_FILE)
+                        logger.info("Migrated legacy scan cache file from %s", src)
+                        break
+                    except Exception:
+                        logger.exception("Failed to migrate legacy scan cache from %s", src)
+
+    def _get_cached_videos(self, chat_id):
+        if not os.path.exists(SCAN_CACHE_FILE):
+            return []
+        try:
+            with open(SCAN_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            videos = data.get(str(chat_id), [])
+            return videos if isinstance(videos, list) else []
+        except Exception:
+            logger.debug("Failed to read scan cache", exc_info=True)
+            return []
+
+    def _save_scan_cache(self, chat_id, videos):
+        try:
+            self._ensure_runtime_dir()
+            if os.path.exists(SCAN_CACHE_FILE):
+                try:
+                    if os.name == "nt":
+                        ctypes.windll.kernel32.SetFileAttributesW(SCAN_CACHE_FILE, 0x80)
+                except Exception:
+                    logger.debug("Could not clear hidden attribute before writing scan cache", exc_info=True)
+            data = {}
+            if os.path.exists(SCAN_CACHE_FILE):
+                with open(SCAN_CACHE_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if not isinstance(data, dict):
+                    data = {}
+
+            # Persist lightweight metadata only; msg objects are re-hydrated when queued.
+            stripped = []
+            for v in videos:
+                stripped.append({
+                    "id": v.get("id"),
+                    "chat_id": v.get("chat_id", chat_id),
+                    "name": v.get("name", ""),
+                    "caption": v.get("caption", ""),
+                    "date_added": v.get("date_added", "-"),
+                    "size": v.get("size", "0 MB"),
+                })
+
+            data[str(chat_id)] = stripped
+            with open(SCAN_CACHE_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+            self._secure_file_for_runtime(SCAN_CACHE_FILE)
+        except Exception:
+            logger.debug("Failed to save scan cache", exc_info=True)
