@@ -1,151 +1,119 @@
-```markdown
-# TELEFLOW v4 - SECURE DATA EXFILTRATION SUITE
+# TELEFLOW v4 - Telegram Video Downloader
 
-**Teleflow** is a professional-grade, high-performance Telegram video downloader built with a sleek **Grey & Green** terminal aesthetic. It features a robust asynchronous engine, a "cyber-ops" inspired interface, and a new **Concurrent Batch Processor** designed for maximum efficiency and stability.
-
----
-
-## 🛡️ Key Features
-
-### **Core Engine & Performance**
-* **Concurrent Downloading:** Download up to **10 files simultaneously**. Includes a dynamic thread selector to balance speed and stability.
-* **Robust Network Handler:** Automatically handles **Telegram Data Center (DC) migrations**, preventing downloads from freezing or crashing due to server-side shifts.
-* **Session Persistence:** Maintains secure session states to avoid repeated logins.
-* **Resumable Queue:** Pause and Resume the entire download batch instantly without losing progress.
-
-### **Cyber-Ops Interface**
-* **Symmetric Security Uplink:** A dual-pane login screen featuring interactive setup instructions and clickable resource links.
-* **Active Uplink Manifest:** A unified, scrollable dashboard tracking live downloads ("Active") versus pending files ("Queued") with color-coded status indicators.
-* **Real-time Telemetry:** A split-view dashboard featuring live throughput graphs, hex data streams, and a "drama" terminal log that tracks every packet exfiltrated.
-* **Payload Directory:** A smooth, borderless file manager with "New > Old" and "Old > New" sorting, search highlighting, and one-click selection.
+Teleflow is a desktop Telegram video downloader built with PySide6 + Telethon, focused on speed, stable concurrent downloads, and clean workflow from chat scan to batch download.
 
 ---
 
-## 🚀 Installation & Setup
+## Latest Release
 
-### **1. Clone the Repository**
+- Version: `v4.1.0`
+- Portable executable: `Teleflow_v4.exe`
+- Installer executable: `Teleflow_v4_Setup.exe`
+- Release page: https://github.com/usm007/Teleflow-4.0/releases/tag/v4.1.0
+
+---
+
+## Key Features
+
+- Concurrent downloads (1 to 10) with live queue controls
+- Session persistence to reduce repeated login steps
+- Scan cache persistence to speed up subsequent scans
+- Scan progress with `scanned / total` and percentage
+- Search, sort, select-all, and batch download workflow
+
+---
+
+## Installation & Setup
+
+### 1. Clone repository
+
 ```bash
-git clone [https://github.com/YOUR_USERNAME/Teleflow.git](https://github.com/YOUR_USERNAME/Teleflow.git)
-cd Teleflow
-
+git clone https://github.com/usm007/Teleflow-4.0.git
+cd Teleflow-4.0
 ```
 
-### **2. Install Dependencies**
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
-
 ```
 
-### **3. Run the Application**
+### 3. Run app
 
 ```bash
 python main.py
-
 ```
 
 ---
 
-## 📦 Compilation (Build .exe)
+## Build Windows Executables
 
-To compile Teleflow into stable Windows artifacts that run without Python installed:
+Prerequisites:
 
-1. **Install PyInstaller:**
-```bash
-pip install pyinstaller
+- Python environment with dependencies installed
+- `pyinstaller`
+- Inno Setup 6 (for installer build)
 
-```
+Recommended build commands:
 
-
-2. **Build portable executable:**
-*(One-file output for easy sharing)*
-```bash
-pyinstaller --noconsole --onefile --name="Teleflow_v4" --icon="icon.ico" --add-data="icon.ico;." main.py
-
-```
-
-
-3. **Build installer payload + Setup executable (recommended):**
-*(Requires Inno Setup 6)*
-```bash
-pyinstaller --noconfirm --clean teleflow.spec
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\teleflow.iss
-
-```
-
-If Inno Setup is installed in a different location, set:
-```bash
-set ISCC=YOUR_FULL_PATH_TO_ISCC.exe
-
-```
-
-
-4. **Use reproducible scripts (preferred):**
-```bash
+```bat
 scripts\build_portable.bat
 scripts\build_installer.bat
-
 ```
 
+Optional code signing:
 
-5. **Optional signing (recommended for SmartScreen trust):**
-Set your certificate thumbprint before running build scripts:
-```bash
+```bat
 set SIGN_CERT_SHA1=YOUR_CERT_THUMBPRINT
-
 ```
 
+If Inno Setup is in a custom location:
 
-6. **Locate artifacts:**
+```bat
+set ISCC=YOUR_FULL_PATH_TO_ISCC.exe
+```
+
+Build outputs:
+
 - `dist\Teleflow_v4.exe` (portable)
 - `release\Teleflow_v4_Setup.exe` (installer)
 
-The scripts auto-sign and verify binaries if `SIGN_CERT_SHA1` is set.
+---
+
+## Download Prebuilt Files
+
+Use GitHub Releases to download prebuilt binaries:
+
+- https://github.com/usm007/Teleflow-4.0/releases
 
 ---
 
-## 🛠️ Configuration Guide
+## Telegram API Credentials
 
-To establish a secure uplink, you need your own Telegram API credentials:
+To use the app you need your own Telegram API credentials:
 
-1. Navigate to [my.telegram.org](https://my.telegram.org).
-2. Login with your phone number and the code sent to your Telegram app.
-3. Go to **API Development Tools** and create a new application.
-4. Input your generated `api_id` and `api_hash` into the Teleflow login screen.
-
----
-
-## 🖥️ Tech Stack
-
-* **GUI Framework:** PySide6 (Qt for Python)
-* **Telegram Protocol:** Telethon (MTProto)
-* **Asynchronous Engine:** qasync (Asyncio integration for Qt) - *Fixes UI freezing during heavy loads.*
-* **Interface:** Custom CSS-themed widgets with dynamic paint events.
+1. Open https://my.telegram.org
+2. Sign in with your phone number
+3. Open API Development Tools and create an app
+4. Enter `api_id` and `api_hash` in Teleflow
 
 ---
 
-## 📦 Project Structure
+## Tech Stack
 
-* `main.py`: The central controller managing navigation, the new Split-View UI, and high-level logic.
-* `core.py`: The heavy-duty engine handling Telegram connections, concurrent semaphores, and download logic.
-* `assets.py`: Custom-painted hacker widgets including the graph, hex stream, and scanline overlay.
-* `requirements.txt`: Project dependencies.
+- PySide6 (Qt for Python)
+- Telethon (Telegram MTProto)
+- qasync (asyncio + Qt event loop integration)
 
 ---
 
-> **Note:** This tool is intended for personal backup and educational use. Ensure you comply with Telegram's Terms of Service and respect content ownership.
+## Project Structure
 
+- `main.py`: UI flow, page navigation, event wiring
+- `core.py`: Telegram auth, scanning, queue/download engine
+- `assets.py`: custom UI widgets and painted components
+- `themes.py` / `stylesheet_builder.py`: theme tokens and stylesheet generation
 
-**Screenshots:**
+---
 
-
-<img width="1919" height="1020" alt="dddddddddd" src="https://github.com/user-attachments/assets/7111df9a-17c6-4349-bb92-05f78c2d2c01" />
-
-
-<img width="1919" height="1022" alt="aaaaaa" src="https://github.com/user-attachments/assets/9aa56026-baa3-4e24-a63f-ddc6db6be782" />
-
-
-<img width="1919" height="1079" alt="bbbbbbbbbbb" src="https://github.com/user-attachments/assets/38a53551-7599-4125-aa3d-e06a333987f2" />
-
-
-<img width="1919" height="1022" alt="ccccccccc" src="https://github.com/user-attachments/assets/4537422f-fecd-421e-89d5-014164b73c40" />
+Note: Use this tool for personal backup and lawful usage only. Respect Telegram terms and content ownership.
