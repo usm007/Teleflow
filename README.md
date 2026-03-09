@@ -1,6 +1,6 @@
 # TELEFLOW v4 - Telegram Video Downloader
 
-![Uploading image.png…]()
+<img width="1400" height="1400" alt="image" src="https://github.com/user-attachments/assets/6d1a558a-8b92-4c5e-b3d4-bdd3f3166523" />
 
 
 Teleflow is a desktop Telegram video downloader built with PySide6 + Telethon, focused on speed, stable concurrent downloads, and clean workflow from chat scan to batch download.
