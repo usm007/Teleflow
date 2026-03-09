@@ -7,7 +7,6 @@ Teleflow is a desktop Telegram video downloader built with PySide6 + Telethon, f
 
 ## Latest Release
 
-- Version: `v4.1.1`
 - Portable executable: `Teleflow_v4.exe`
 - Installer executable: `Teleflow_v4_Setup.exe`
 - Release page: https://github.com/usm007/Teleflow-4.0/releases/
