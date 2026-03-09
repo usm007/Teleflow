@@ -22,11 +22,15 @@ Older Teleflow lines are now preserved in this same repository as dedicated bran
 
 ## Key Features
 
-- Concurrent downloads (1 to 10) with live queue controls
-- Session persistence to reduce repeated login steps
-- Scan cache persistence to speed up subsequent scans
-- Scan progress with `scanned / total` and percentage
-- Search, sort, select-all, and batch download workflow
+- Download Videos from Telegram: Easily save videos from your Telegram chats to your computer.
+- Multiple Downloads at Once: Download several videos at the same time, making the process faster.
+- Easy Login: You only need to log in once; Teleflow remembers your session for next time.
+- Quick Chat Scanning: The app quickly scans your chats to find videos, and remembers what it scanned to save time later.
+- Progress Tracking: See how many videos have been scanned and downloaded, with clear progress bars and numbers.
+- Search and Sort: Find videos easily by searching or sorting them.
+- Select and Batch Download: Select all or specific videos and download them in one go.
+- Simple Interface: The app is designed to be easy to use, with clear buttons and instructions.
+- Safe and Private: Your login and downloads are kept private on your computer.
 
 ---
 
